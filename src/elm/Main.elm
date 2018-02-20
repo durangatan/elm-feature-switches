@@ -5,6 +5,7 @@ module Main exposing (..)
 import Decoders.FeatureSwitches exposing (decodeFeatureSwitches)
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (..)
 import Http
 import Model.FeatureSwitches exposing (FeatureSwitch)
 
@@ -29,6 +30,8 @@ init =
 type alias Model =
     { featureSwitches : List FeatureSwitch
     , error : Maybe String
+    , isFetching : Bool
+    , filter : Filter
     }
 
 
@@ -36,7 +39,14 @@ initialModel : Model
 initialModel =
     { featureSwitches = []
     , error = Nothing
+    , isFetching = False
+    , filter = All
     }
+
+
+type Filter
+    = All
+    | Enabled
 
 
 
@@ -46,19 +56,30 @@ initialModel =
 type Msg
     = FetchFeatureSwitches
     | FetchedFeatureSwitches (Result Http.Error (List FeatureSwitch))
+    | SetFilter String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         FetchFeatureSwitches ->
-            ( initialModel, featureSwitchRequest )
+            ( { model | isFetching = True }, featureSwitchRequest )
 
         FetchedFeatureSwitches (Ok newFeatureSwitches) ->
-            ( Model newFeatureSwitches Nothing, Cmd.none )
+            ( { model | featureSwitches = newFeatureSwitches, isFetching = False }, Cmd.none )
 
         FetchedFeatureSwitches (Err _) ->
             ( { model | error = Just "something happened!" }, Cmd.none )
+
+        SetFilter filter ->
+            let
+                filterValue =
+                    if filter == "Enabled" then
+                        Enabled
+                    else
+                        All
+            in
+            ( { model | filter = filterValue }, Cmd.none )
 
 
 
@@ -76,9 +97,9 @@ view model =
                     errorView error
 
                 Nothing ->
-                    featureSwitchesView model.featureSwitches
+                    featureSwitchesView model
     in
-    div [ class "container", style [ ( "margin-top", "30px" ), ( "text-align", "center" ) ] ] [ containerBody ]
+    div [ class "container", style [ ( "margin-top", "30px" ), ( "text-align", "center" ) ] ] [ refreshButton, filterSelector, containerBody ]
 
 
 featureSwitchView : FeatureSwitch -> Html Msg
@@ -89,18 +110,47 @@ featureSwitchView featureSwitch =
         ]
 
 
-featureSwitchesView : List FeatureSwitch -> Html Msg
-featureSwitchesView featureSwitches =
-    ul []
-        (List.map
-            featureSwitchView
-            featureSwitches
-        )
+featureSwitchesView : Model -> Html Msg
+featureSwitchesView model =
+    if model.isFetching then
+        div [ class "loading-message" ] [ text "... Hold Please" ]
+    else
+        ul []
+            (List.map
+                featureSwitchView
+                (List.filter
+                    (getFilter
+                        model.filter
+                    )
+                    model.featureSwitches
+                )
+            )
 
 
 errorView : String -> Html Msg
 errorView errorMessage =
     div [ class "error" ] [ text errorMessage ]
+
+
+refreshButton : Html Msg
+refreshButton =
+    button [ onClick FetchFeatureSwitches ] [ text "Refresh Feature Switches" ]
+
+
+getFilter : Filter -> FeatureSwitch -> Bool
+getFilter filter =
+    case filter of
+        All ->
+            \_ -> True
+
+        Enabled ->
+            \fs -> fs.isOn
+
+
+filterSelector : Html Msg
+filterSelector =
+    select [ onInput SetFilter ]
+        [ option [ value "All" ] [ text "All" ], option [ value "Enabled" ] [ text "Enabled" ] ]
 
 
 
