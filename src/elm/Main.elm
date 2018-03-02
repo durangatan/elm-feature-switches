@@ -66,7 +66,7 @@ type Msg
     | SetFilter String
     | UpdateName String
     | UpdateDescription String
-    | UpdateCheckbox String
+    | UpdateCheckbox
     | CreateNewFeatureSwitch
     | CreatedNewFeatureSwitch (Result Http.Error FeatureSwitch)
 
@@ -113,13 +113,13 @@ update msg model =
             in
             ( { model | unsavedFeatureSwitch = newFeatureSwitch }, Cmd.none )
 
-        UpdateCheckbox checkboxValue ->
+        UpdateCheckbox ->
             let
                 oldFeatureSwitch =
                     model.unsavedFeatureSwitch
 
                 newFeatureSwitch =
-                    { oldFeatureSwitch | isOn = checkboxValue == "true" }
+                    { oldFeatureSwitch | isOn = not oldFeatureSwitch.isOn }
             in
             ( { model | unsavedFeatureSwitch = newFeatureSwitch }, Cmd.none )
 
@@ -150,7 +150,7 @@ view model =
                 Nothing ->
                     featureSwitchesView model
     in
-    div [ class "container", style [ ( "margin-top", "30px" ), ( "text-align", "center" ) ] ] [ refreshButton, filterSelector, containerBody ]
+    div [ class "container", style [ ( "margin-top", "30px" ), ( "text-align", "center" ) ] ] [ div [ class "controls" ] [ refreshButton, filterSelector ], containerBody ]
 
 
 featureSwitchView : FeatureSwitch -> Html Msg
@@ -166,7 +166,7 @@ featureSwitchForm =
     li [ class "feature-switch form" ]
         [ input [ class "name", type_ "text", placeholder "name", onInput UpdateName ] []
         , input [ class "description", type_ "text", placeholder "description", onInput UpdateDescription ] []
-        , input [ class "isOn", type_ "checkbox", onInput UpdateCheckbox ] []
+        , input [ class "isOn", type_ "checkbox", onClick UpdateCheckbox ] []
         , button [ class "button", onClick CreateNewFeatureSwitch ] [ text "Create!" ]
         ]
 
@@ -230,7 +230,13 @@ featureSwitchClass featureSwitch =
 styles : { featureSwitch : List ( String, String ) }
 styles =
     { featureSwitch =
-        [ ( "display", "flex" ), ( "flex-direction", "column" ) ]
+        [ ( "display", "flex" )
+        , ( "flex-direction", "column" )
+        , ( "padding", "10px" )
+        , ( "border", "solid 1px black" )
+        , ( "border-radius", "20px" )
+        , ( "margin", "10px" )
+        ]
     }
 
 
