@@ -2,7 +2,7 @@ module Main exposing (..)
 
 -- comonent import example
 
-import Decoders.FeatureSwitches exposing (decodeFeatureSwitches)
+import Decoders.FeatureSwitches exposing (decodeFeatureSwitch, decodeFeatureSwitches, encodeFeatureSwitch)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -32,7 +32,13 @@ type alias Model =
     , error : Maybe String
     , isFetching : Bool
     , filter : Filter
+    , unsavedFeatureSwitch : FeatureSwitch
     }
+
+
+initialUnsavedFeatureSwitch : FeatureSwitch
+initialUnsavedFeatureSwitch =
+    { name = "", description = "", isOn = False }
 
 
 initialModel : Model
@@ -41,6 +47,7 @@ initialModel =
     , error = Nothing
     , isFetching = False
     , filter = All
+    , unsavedFeatureSwitch = initialUnsavedFeatureSwitch
     }
 
 
@@ -57,6 +64,11 @@ type Msg
     = FetchFeatureSwitches
     | FetchedFeatureSwitches (Result Http.Error (List FeatureSwitch))
     | SetFilter String
+    | UpdateName String
+    | UpdateDescription String
+    | UpdateCheckbox String
+    | CreateNewFeatureSwitch
+    | CreatedNewFeatureSwitch (Result Http.Error FeatureSwitch)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -80,6 +92,45 @@ update msg model =
                         All
             in
             ( { model | filter = filterValue }, Cmd.none )
+
+        UpdateName name ->
+            let
+                oldFeatureSwitch =
+                    model.unsavedFeatureSwitch
+
+                newFeatureSwitch =
+                    { oldFeatureSwitch | name = name }
+            in
+            ( { model | unsavedFeatureSwitch = newFeatureSwitch }, Cmd.none )
+
+        UpdateDescription description ->
+            let
+                oldFeatureSwitch =
+                    model.unsavedFeatureSwitch
+
+                newFeatureSwitch =
+                    { oldFeatureSwitch | description = description }
+            in
+            ( { model | unsavedFeatureSwitch = newFeatureSwitch }, Cmd.none )
+
+        UpdateCheckbox checkboxValue ->
+            let
+                oldFeatureSwitch =
+                    model.unsavedFeatureSwitch
+
+                newFeatureSwitch =
+                    { oldFeatureSwitch | isOn = checkboxValue == "true" }
+            in
+            ( { model | unsavedFeatureSwitch = newFeatureSwitch }, Cmd.none )
+
+        CreateNewFeatureSwitch ->
+            ( { model | isFetching = True }, createFeatureSwitchRequest model )
+
+        CreatedNewFeatureSwitch (Ok newFeatureSwitch) ->
+            ( { model | isFetching = False, featureSwitches = newFeatureSwitch :: model.featureSwitches, unsavedFeatureSwitch = initialUnsavedFeatureSwitch }, Cmd.none )
+
+        CreatedNewFeatureSwitch (Err _) ->
+            ( { model | isFetching = False, error = Just "Something went wrong with creating the new fs", unsavedFeatureSwitch = initialUnsavedFeatureSwitch }, Cmd.none )
 
 
 
@@ -110,20 +161,31 @@ featureSwitchView featureSwitch =
         ]
 
 
+featureSwitchForm : Html Msg
+featureSwitchForm =
+    li [ class "feature-switch form" ]
+        [ input [ class "name", type_ "text", placeholder "name", onInput UpdateName ] []
+        , input [ class "description", type_ "text", placeholder "description", onInput UpdateDescription ] []
+        , input [ class "isOn", type_ "checkbox", onInput UpdateCheckbox ] []
+        , button [ class "button", onClick CreateNewFeatureSwitch ] [ text "Create!" ]
+        ]
+
+
 featureSwitchesView : Model -> Html Msg
 featureSwitchesView model =
     if model.isFetching then
         div [ class "loading-message" ] [ text "... Hold Please" ]
     else
         ul []
-            (List.map
-                featureSwitchView
-                (List.filter
-                    (getFilter
-                        model.filter
+            (featureSwitchForm
+                :: List.map
+                    featureSwitchView
+                    (List.filter
+                        (getFilter
+                            model.filter
+                        )
+                        model.featureSwitches
                     )
-                    model.featureSwitches
-                )
             )
 
 
@@ -183,6 +245,18 @@ featureSwitchRequest =
             "http://localhost:8888/features"
     in
     Http.send FetchedFeatureSwitches (Http.get url decodeFeatureSwitches)
+
+
+createFeatureSwitchRequest : Model -> Cmd Msg
+createFeatureSwitchRequest model =
+    let
+        url =
+            "http://localhost:8888/features"
+
+        body =
+            Http.jsonBody (encodeFeatureSwitch model.unsavedFeatureSwitch)
+    in
+    Http.send CreatedNewFeatureSwitch (Http.post url body decodeFeatureSwitch)
 
 
 
