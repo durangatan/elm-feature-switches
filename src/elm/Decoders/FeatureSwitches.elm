@@ -1,6 +1,7 @@
 module Decoders.FeatureSwitches exposing (..)
 
 import Json.Decode
+import Json.Encode
 import Json.Decode.Pipeline
 import Model.FeatureSwitches exposing (FeatureSwitch)
 
@@ -16,3 +17,11 @@ decodeFeatureSwitch =
 decodeFeatureSwitches : Json.Decode.Decoder (List FeatureSwitch)
 decodeFeatureSwitches =
     Json.Decode.list decodeFeatureSwitch
+
+encodeFeatureSwitch : FeatureSwitch -> Json.Encode.Value
+encodeFeatureSwitch record =
+    Json.Encode.object
+        [ ("name",  Json.Encode.string <| record.name)
+        , ("description",  Json.Encode.string <| record.description)
+        , ("isOn",  Json.Encode.bool <| record.isOn)
+        ]
